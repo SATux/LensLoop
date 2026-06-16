@@ -14,14 +14,14 @@ Lightweight web server for a Raspberry Pi camera. Streams live MJPEG video and s
 ## Quick Start
 
 ```bash
-# Start the server
-python3 serve_video.py
+# Start the server (use system Python — picamera2 is not in Linuxbrew Python)
+/usr/bin/python3 serve_video.py
 
 # Optional: debug logging
-DEBUG=1 python3 serve_video.py
+DEBUG=1 /usr/bin/python3 serve_video.py
 
 # Optional: custom port / resolution
-PORT=8080 CAM_WIDTH=1280 CAM_HEIGHT=720 python3 serve_video.py
+PORT=8080 CAM_WIDTH=1280 CAM_HEIGHT=720 /usr/bin/python3 serve_video.py
 ```
 
 Open `http://<pi-ip>:8000` in a browser.
