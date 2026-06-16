@@ -1,0 +1,18 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "picamera-suite"
+version = "0.1.0"
+description = "Raspberry Pi live MJPEG stream and timelapse server"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+serve    = "app.server:run"
+capture  = "app.capture:main"
+make-video = "app.video:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]

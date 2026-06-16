@@ -2,7 +2,7 @@
 """Assemble timelapse frames into an MP4 video using ffmpeg.
 
 Usage:
-  python3 make_video.py [--frames timelapse_frames] [--output timelapse.mp4] [--fps 10]
+  uv run make-video [--frames timelapse_frames] [--output timelapse.mp4] [--fps 10]
 """
 import argparse
 import subprocess
@@ -27,7 +27,7 @@ def make_video(frames_dir: str, output: str, fps: int = 10):
     print(f'Video written to {output}')
 
 
-if __name__ == '__main__':
+def main():
     parser = argparse.ArgumentParser(description='Build timelapse video from frames')
     parser.add_argument('--frames', default='timelapse_frames', help='Input frames directory')
     parser.add_argument('--output', default='timelapse.mp4', help='Output video file')
