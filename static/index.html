@@ -14,6 +14,7 @@
     .btn{display:block;width:100%;padding:1rem;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:1.1rem;font-weight:600;cursor:pointer;text-align:center;text-decoration:none;margin:.5rem 0;transition:filter .15s;}
     .btn:hover{filter:brightness(1.15);}
     .btn.live{background:#28a745;}
+    .btn.setup{background:#6f42c1;}
     .foot{margin-top:2rem;font-size:.75rem;color:var(--muted);text-align:center;}
   </style>
 </head>
@@ -23,6 +24,7 @@
     <p class="sub">Timelapse video &amp; live camera stream</p>
     <a class="btn" href="/video_page">Watch Timelapse</a>
     <a class="btn live" href="/livestream_page">Live Camera Stream</a>
+    <a class="btn setup" href="/timelapse_page">Setup Timelapse</a>
     <div class="foot">Running on Raspberry Pi &bull; <span id="ts"></span></div>
   </div>
   <script>document.getElementById('ts').textContent = new Date().toLocaleString();</script>

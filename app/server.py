@@ -1,4 +1,5 @@
 import http.server
+import json
 import logging
 import os
 import socketserver
@@ -6,7 +7,7 @@ import sys
 import time
 from pathlib import Path
 
-from . import camera
+from . import camera, timelapse
 
 PORT = int(os.getenv('PORT', '8000'))
 DEBUG = os.getenv('DEBUG') == '1' or '--debug' in sys.argv
@@ -21,27 +22,74 @@ ROOT = Path(__file__).parent.parent
 STATIC = ROOT / 'static'
 
 
+def _latest_video() -> Path | None:
+    videos = sorted(ROOT.glob('timelapse*.mp4'), key=lambda p: p.stat().st_mtime, reverse=True)
+    return videos[0] if videos else None
+
+
 class Handler(http.server.BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         logger.debug(fmt, *args)
+
+    # ---- routing ----
 
     def do_GET(self):
         p = self.path.split('?')[0]
         if p == '/livestream':
             self._stream()
+        elif p == '/timelapse/status':
+            self._json(timelapse.status())
+        elif p == '/video':
+            v = _latest_video()
+            if v:
+                self._send_file(v, 'video/mp4')
+            else:
+                self.send_error(404, 'No timelapse video found')
         else:
             self._static(p)
 
     def do_HEAD(self):
-        self._static(self.path.split('?')[0])
+        p = self.path.split('?')[0]
+        if p == '/video':
+            v = _latest_video()
+            if v:
+                self._send_file(v, 'video/mp4')
+            else:
+                self.send_error(404)
+        else:
+            self._static(p)
+
+    def do_POST(self):
+        p = self.path.split('?')[0]
+        length = int(self.headers.get('Content-Length', 0))
+        body = json.loads(self.rfile.read(length)) if length else {}
+
+        if p == '/timelapse/start':
+            interval = float(body.get('interval', 5))
+            duration = float(body.get('duration', 10))
+            fps      = int(body.get('fps', 10))
+            if interval <= 0 or duration <= 0:
+                self._json({'ok': False, 'error': 'interval and duration must be > 0'}, 400)
+                return
+            ok, err = timelapse.start(interval, duration, fps)
+            self._json({'ok': ok, 'error': err})
+
+        elif p == '/timelapse/stop':
+            timelapse.stop()
+            self._json({'ok': True})
+
+        else:
+            self.send_error(404)
+
+    # ---- helpers ----
 
     def _static(self, path):
         routes = {
-            '/':                (STATIC / 'index.html',           'text/html; charset=utf-8'),
-            '/index.html':      (STATIC / 'index.html',           'text/html; charset=utf-8'),
-            '/video_page':      (STATIC / 'video_page.html',      'text/html; charset=utf-8'),
-            '/livestream_page': (STATIC / 'livestream_page.html', 'text/html; charset=utf-8'),
-            '/video':           (ROOT / 'timelapse.mp4',          'video/mp4'),
+            '/':                  (STATIC / 'index.html',           'text/html; charset=utf-8'),
+            '/index.html':        (STATIC / 'index.html',           'text/html; charset=utf-8'),
+            '/video_page':        (STATIC / 'video_page.html',      'text/html; charset=utf-8'),
+            '/livestream_page':   (STATIC / 'livestream_page.html', 'text/html; charset=utf-8'),
+            '/timelapse_page':    (STATIC / 'timelapse_page.html',  'text/html; charset=utf-8'),
         }
         if path == '/favicon.ico':
             self.send_response(204)
@@ -64,6 +112,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
             with open(fpath, 'rb') as f:
                 while chunk := f.read(65536):
                     self.wfile.write(chunk)
+
+    def _json(self, data, status=200):
+        body = json.dumps(data).encode()
+        self.send_response(status)
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Content-Length', str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
 
     def _stream(self):
         self.send_response(200)
