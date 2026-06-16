@@ -128,13 +128,21 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def _write_frame(self, data):
         self.wfile.write(
-            b'--frame\r\nContent-Type: image/jpeg\r\n\r\n' + data + b'\r\n'
+            b'--frame\r\n'
+            b'Content-Type: image/jpeg\r\n'
+            b'Content-Length: ' + str(len(data)).encode() + b'\r\n'
+            b'\r\n' + data + b'\r\n'
         )
+        self.wfile.flush()
+
+
+class _Server(socketserver.ThreadingMixIn, socketserver.TCPServer):
+    allow_reuse_address = True
+    daemon_threads = True
 
 
 if __name__ == '__main__':
     _start_camera()
-    socketserver.TCPServer.allow_reuse_address = True
     logger.info('Listening on :%d', PORT)
-    with socketserver.TCPServer(('', PORT), Handler) as httpd:
+    with _Server(('', PORT), Handler) as httpd:
         httpd.serve_forever()
