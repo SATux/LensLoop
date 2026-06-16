@@ -2,7 +2,7 @@
 """Capture timelapse frames from Raspberry Pi camera.
 
 Usage:
-  python3 capture_timelapse.py --output timelapse_frames [--interval 5] [--count 100]
+  /usr/bin/python3 capture.py --output timelapse_frames [--interval 5] [--count 100]
 """
 import argparse
 import os

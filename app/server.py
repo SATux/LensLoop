@@ -1,17 +1,14 @@
-#!/usr/bin/env python3
 import http.server
-import socketserver
-import io
 import logging
 import os
+import socketserver
 import sys
-import threading
 import time
 from pathlib import Path
 
+from . import camera
+
 PORT = int(os.getenv('PORT', '8000'))
-CAM_WIDTH = int(os.getenv('CAM_WIDTH', '640'))
-CAM_HEIGHT = int(os.getenv('CAM_HEIGHT', '480'))
 DEBUG = os.getenv('DEBUG') == '1' or '--debug' in sys.argv
 
 logging.basicConfig(
@@ -20,44 +17,13 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-
-class _FrameBuffer(io.BufferedIOBase):
-    """Shared buffer picamera2 writes MJPEG frames into."""
-    def __init__(self):
-        self.frame = None
-        self.ready = threading.Condition()
-
-    def write(self, data):
-        with self.ready:
-            self.frame = data
-            self.ready.notify_all()
-        return len(data)
-
-
-_buf = _FrameBuffer()
-_camera_ok = False
-
-
-def _start_camera():
-    global _camera_ok
-    try:
-        from picamera2 import Picamera2
-        from picamera2.encoders import MJPEGEncoder
-        from picamera2.outputs import FileOutput
-        cam = Picamera2()
-        cam.configure(cam.create_video_configuration(main={'size': (CAM_WIDTH, CAM_HEIGHT)}))
-        cam.start_recording(MJPEGEncoder(), FileOutput(_buf))
-        _camera_ok = True
-        logger.info(f"Camera streaming at {CAM_WIDTH}x{CAM_HEIGHT}")
-    except Exception as exc:
-        logger.warning(f"Camera unavailable, using placeholder: {exc}")
+ROOT = Path(__file__).parent.parent
+STATIC = ROOT / 'static'
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         logger.debug(fmt, *args)
-
-    # ---- routing ----
 
     def do_GET(self):
         p = self.path.split('?')[0]
@@ -71,11 +37,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def _static(self, path):
         routes = {
-            '/video':            (Path('timelapse.mp4'),       'video/mp4'),
-            '/':                 (Path('index.html'),          'text/html; charset=utf-8'),
-            '/index.html':       (Path('index.html'),          'text/html; charset=utf-8'),
-            '/video_page':       (Path('video_page.html'),     'text/html; charset=utf-8'),
-            '/livestream_page':  (Path('livestream_page.html'),'text/html; charset=utf-8'),
+            '/':                (STATIC / 'index.html',           'text/html; charset=utf-8'),
+            '/index.html':      (STATIC / 'index.html',           'text/html; charset=utf-8'),
+            '/video_page':      (STATIC / 'video_page.html',      'text/html; charset=utf-8'),
+            '/livestream_page': (STATIC / 'livestream_page.html', 'text/html; charset=utf-8'),
+            '/video':           (ROOT / 'timelapse.mp4',          'video/mp4'),
         }
         if path == '/favicon.ico':
             self.send_response(204)
@@ -86,16 +52,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return
         self._send_file(*routes[path])
 
-    # ---- handlers ----
-
     def _send_file(self, fpath, ctype):
         if not fpath.is_file():
             self.send_error(404, f'{fpath.name} not found')
             return
-        size = fpath.stat().st_size
         self.send_response(200)
         self.send_header('Content-Type', ctype)
-        self.send_header('Content-Length', str(size))
+        self.send_header('Content-Length', str(fpath.stat().st_size))
         self.end_headers()
         if self.command == 'GET':
             with open(fpath, 'rb') as f:
@@ -107,17 +70,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.send_header('Content-Type', 'multipart/x-mixed-replace; boundary=frame')
         self.end_headers()
         try:
-            if _camera_ok:
+            if camera.available:
                 while True:
-                    with _buf.ready:
-                        _buf.ready.wait()
-                        frame = _buf.frame
+                    with camera.buffer.ready:
+                        camera.buffer.ready.wait()
+                        frame = camera.buffer.frame
                     self._write_frame(frame)
             else:
-                placeholder = Path('placeholder.jpg')
-                if not placeholder.is_file():
-                    return
-                frame = placeholder.read_bytes()
+                frame = (STATIC / 'placeholder.jpg').read_bytes()
                 while True:
                     self._write_frame(frame)
                     time.sleep(1.0)
@@ -141,8 +101,8 @@ class _Server(socketserver.ThreadingMixIn, socketserver.TCPServer):
     daemon_threads = True
 
 
-if __name__ == '__main__':
-    _start_camera()
+def run():
+    camera.start()
     logger.info('Listening on :%d', PORT)
     with _Server(('', PORT), Handler) as httpd:
         httpd.serve_forever()

@@ -2,7 +2,7 @@
 """Assemble timelapse frames into an MP4 video using ffmpeg.
 
 Usage:
-  python3 create_video.py [--frames timelapse_frames] [--output timelapse.mp4] [--fps 10]
+  python3 make_video.py [--frames timelapse_frames] [--output timelapse.mp4] [--fps 10]
 """
 import argparse
 import subprocess
@@ -13,7 +13,7 @@ def make_video(frames_dir: str, output: str, fps: int = 10):
     frames = Path(frames_dir)
     if not any(frames.glob('*.jpg')):
         raise FileNotFoundError(f'No .jpg files found in {frames_dir}')
-    cmd = [
+    subprocess.run([
         'ffmpeg', '-y',
         '-framerate', str(fps),
         '-pattern_type', 'glob',
@@ -23,8 +23,7 @@ def make_video(frames_dir: str, output: str, fps: int = 10):
         '-crf', '28',
         '-pix_fmt', 'yuv420p',
         output,
-    ]
-    subprocess.run(cmd, check=True)
+    ], check=True)
     print(f'Video written to {output}')
 
 

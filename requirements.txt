@@ -1,0 +1,3 @@
+# No pip packages — all dependencies are system packages.
+# Install with:
+#   sudo apt install python3-picamera2 ffmpeg
