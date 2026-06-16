@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live Stream – PiCamera Suite</title>
+  <style>
+    :root { --bg:#121212; --card:#1e1e1e; --accent:#28a745; --glow:#00ff4433; --text:#e0e0e0; --muted:#888; }
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:2rem;display:flex;align-items:center;justify-content:center;}
+    .card{max-width:640px;width:100%;background:var(--card);border-radius:16px;padding:2rem;box-shadow:0 12px 40px var(--glow);}
+    h1{font-size:1.8rem;font-weight:700;margin-bottom:.5rem;text-align:center;}
+    .sub{color:var(--muted);text-align:center;margin-bottom:1.5rem;font-size:.9rem;}
+    img{width:100%;border-radius:8px;margin-bottom:1rem;display:block;}
+    .back{color:var(--accent);text-decoration:none;font-size:.9rem;}
+    .back:hover{text-decoration:underline;}
+    .foot{margin-top:2rem;font-size:.75rem;color:var(--muted);text-align:center;}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Live Stream</h1>
+    <p class="sub">Real-time view from your camera</p>
+    <img src="/livestream" alt="Live camera feed">
+    <a class="back" href="/">&larr; Back</a>
+    <div class="foot"><span id="ts"></span></div>
+  </div>
+  <script>document.getElementById('ts').textContent = new Date().toLocaleString();</script>
+</body>
+</html>

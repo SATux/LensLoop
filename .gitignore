@@ -1,0 +1,15 @@
+# Generated data — not tracked
+timelapse_frames/
+test_frames/
+timelapse.mp4
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# OS
+.DS_Store
+Thumbs.db
