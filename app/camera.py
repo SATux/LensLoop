@@ -47,7 +47,7 @@ def stop():
     available = False
     if _cam is not None:
         try:
-            _cam.stop_recording()
+            _cam.close()
         except Exception:
             pass
         _cam = None

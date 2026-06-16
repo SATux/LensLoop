@@ -1,6 +1,7 @@
 import logging
 import subprocess
 import threading
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -57,6 +58,7 @@ def _run(interval: float, duration_min: float, fps: int):
     _update(status='capturing', total=total, captured=0, message='', video='')
 
     camera.stop()
+    time.sleep(0.5)  # let camera hardware fully release
     captured = 0
     try:
         from picamera2 import Picamera2
