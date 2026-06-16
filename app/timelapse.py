@@ -74,13 +74,14 @@ def _run(interval: float, duration_min: float, fps: int):
                 if captured < total:
                     _stop.wait(interval)
         finally:
-            cam.stop()
+            cam.close()
     except Exception as exc:
         logger.error('Capture error: %s', exc)
         camera.start()
         _update(status='error', message=str(exc))
         return
 
+    time.sleep(0.5)  # let timelapse camera fully release before restarting stream
     camera.start()
 
     if captured == 0:
