@@ -11,10 +11,13 @@ Built on **FastAPI + React 18 + Vite**, backed by **picamera2** and **libcamera*
 ## Features
 
 - **Live stream** — real-time MJPEG preview with in-browser quality controls; automatically selects the hardware VideoCore encoder for supported resolutions and falls back to software encoding (LibavMjpegEncoder) for full-sensor modes
-- **Timelapse capture** — configurable interval, duration, resolution, and FPS; real-time progress via WebSocket
+- **Timelapse capture** — configurable interval, duration, resolution, and FPS; real-time progress via WebSocket with live latest-frame preview as frames are captured
+- **Capture preview** — the most recently captured frame appears on the Capture page and in the sidebar banner when you navigate away, so you can monitor a shoot from any page
 - **Scheduler** — cron-based recurring captures stored in SQLite, displayed in SAST (UTC+2)
 - **Video library** — browse, stream (range requests), preview, and delete finished timelapses
 - **Camera capabilities** — auto-detected sensor modes with megapixels, max FPS, and field-of-view info
+- **Settings** — persistent defaults for stream resolution and capture parameters (interval, duration, FPS, resolution); applied automatically on next session; includes a one-click "Delete all captures & videos" with confirmation
+- **Runtime debug toggle** — switch server log level between INFO and DEBUG from the Live Stream page without restarting
 
 ## Requirements
 
@@ -47,8 +50,8 @@ uv sync
 | `PORT` | `8000` | HTTP port |
 | `HOST` | `0.0.0.0` | Bind address |
 | `DATA_DIR` | `./data` | Root for frames, videos, DB |
-| `CAM_WIDTH` | `1280` | Stream preview width |
-| `CAM_HEIGHT` | `720` | Stream preview height |
+| `CAM_WIDTH` | `1280` | Initial stream preview width (overridden by saved settings) |
+| `CAM_HEIGHT` | `720` | Initial stream preview height (overridden by saved settings) |
 | `LOG_LEVEL` | `info` | uvicorn log level |
 
 ### Entry point (without start.sh)
@@ -71,14 +74,23 @@ backend/
     camera.py           # CameraService — MJPEG stream, still mode, capability discovery
     capture.py          # CaptureService — blocking frame loop (asyncio.to_thread)
     encoder.py          # EncoderService — ffmpeg/ffprobe wrapper
+    settings_store.py   # SettingsStore — JSON-backed persistent settings with defaults
     state.py            # StateManager — state machine, asyncio.Lock, WS pub/sub
     scheduler.py        # SchedulerService — APScheduler + SQLite job store
     video_library.py    # VideoLibrary — file management + DB
-  routers/              # FastAPI routers: stream, camera, timelapse, preview, videos, schedule, ws
-  tests/                # pytest-asyncio test suite (74 tests)
+  routers/
+    stream.py           # /api/stream, /api/stream/quality, /api/debug/level
+    camera.py           # /api/camera/info, /api/camera/capabilities
+    timelapse.py        # /api/timelapse/*, /api/timelapse/latest-frame
+    preview.py          # /api/preview/*
+    videos.py           # /api/videos/*
+    schedule.py         # /api/schedule/*
+    settings.py         # /api/settings, /api/settings/data
+    ws.py               # /ws/status
+  tests/                # pytest-asyncio test suite
 frontend/
-  src/pages/            # Dashboard, LiveStream, Capture, Schedule, Library
-  src/components/       # Sidebar, TopBar, VideoPlayer, QualitySelector, etc.
+  src/pages/            # Dashboard, LiveStream, Capture, Schedule, Library, Settings
+  src/components/       # Sidebar, TopBar, ActiveCaptureBanner, QualitySelector, etc.
   src/hooks/            # useStatus (WS), useVideos, useCapabilities
 data/                   # Runtime data — gitignored
   frames/<run_id>/      # Captured JPEGs (deleted after video assembly)
@@ -86,6 +98,7 @@ data/                   # Runtime data — gitignored
   previews/             # Short preview clips
   thumbnails/           # Video poster frames
   timelapse.db          # SQLite: runs, videos, scheduled_jobs
+  settings.json         # Persistent user settings
 LensLoop.png            # Wordmark logo (source)
 start.sh                # Build frontend + start server
 pyproject.toml
@@ -104,20 +117,27 @@ pyproject.toml
 | `/api/timelapse/start` | POST | Start capture |
 | `/api/timelapse/stop` | POST | Abort capture |
 | `/api/timelapse/build` | POST | Assemble frames → MP4 |
+| `/api/timelapse/latest-frame` | GET | Latest captured JPEG (`?n=<frame_number>`) |
 | `/api/preview/{run_id}` | GET | Short preview clip (202 while generating) |
 | `/api/videos` | GET | List finished videos |
 | `/api/videos/{id}` | GET | Stream video (range requests supported) |
 | `/api/videos/{id}` | DELETE | Delete video + frames |
 | `/api/schedule` | GET / POST | List / create scheduled jobs |
 | `/api/schedule/{id}` | GET / PUT / DELETE | Get / update / delete job |
-| `/api/schedule/{id}/enable` | PATCH | Enable or disable job |
-| `/api/schedule/{id}/trigger` | POST | Run job immediately |
+| `/api/schedule/{id}/enable` | POST | Enable job |
+| `/api/schedule/{id}/disable` | POST | Disable job |
+| `/api/schedule/{id}/run_now` | POST | Run job immediately |
+| `/api/settings` | GET | Return all persistent settings |
+| `/api/settings` | PATCH | Update one or more settings (applies stream resolution immediately) |
+| `/api/settings/data` | DELETE | Delete all captures, videos, and DB records |
 | `/ws/status` | WS | Real-time capture progress |
 
 ## Notes
 
 - **Python**: must use `/usr/bin/python3` (system 3.11 with picamera2). Linuxbrew Python does not have picamera2.
 - **Camera access**: only one process can hold the camera at a time. The server automatically stops the MJPEG stream before timelapse capture and restarts it when done.
+- **Stream encoding**: the VideoCore hardware MJPEG encoder (`/dev/video11`) has a resolution ceiling. LensLoop automatically falls back to a software encoder (LibavMjpegEncoder via PyAV) for modes that exceed the hardware limit, so all sensor modes are available at full quality.
+- **Settings persistence**: settings are saved to `data/settings.json` and loaded on startup. The default stream resolution is applied immediately when changed in the Settings page.
 - **Timestamps**: all scheduler and video timestamps are displayed in SAST (UTC+2, no DST).
 - **Video filenames**: `timelapse_YYYYMMDD_HHMMSS.mp4` using SAST time; DB IDs remain UUIDs.
 - **Tests**: `uv run pytest backend/tests/ -v`

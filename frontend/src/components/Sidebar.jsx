@@ -11,6 +11,7 @@ const NAV = [
   { to: '/capture',   icon: 'fa-camera',  label: 'Capture'     },
   { to: '/schedule',  icon: 'fa-clock',   label: 'Schedule'    },
   { to: '/library',   icon: 'fa-images',  label: 'Library'     },
+  { to: '/settings',  icon: 'fa-gear',    label: 'Settings'    },
 ]
 
 function useDiskUsage() {

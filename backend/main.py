@@ -11,10 +11,11 @@ from . import config
 from .database import init_db
 from .services.camera import CameraService
 from .services.encoder import EncoderService
+from .services.settings_store import SettingsStore
 from .services.state import StateManager
 from .services.scheduler import SchedulerService
 from .services.video_library import VideoLibrary
-from .routers import stream, camera, timelapse, preview, videos, schedule, ws
+from .routers import stream, camera, timelapse, preview, videos, schedule, ws, settings
 
 logging.basicConfig(
     level=logging.DEBUG if config.DEBUG else logging.INFO,
@@ -32,8 +33,13 @@ async def lifespan(app: FastAPI):
 
     await init_db()
 
+    cfg_settings = SettingsStore(config.DATA_DIR / "settings.json")
+
     cam = CameraService()
-    cam.start_stream()
+    cam.start_stream(
+        width=cfg_settings.get("stream_width"),
+        height=cfg_settings.get("stream_height"),
+    )
 
     enc = EncoderService()
     lib = VideoLibrary(enc)
@@ -48,6 +54,7 @@ async def lifespan(app: FastAPI):
     app.state.video_library = lib
     app.state.state_manager = state
     app.state.scheduler = sched
+    app.state.settings = cfg_settings
 
     logger.info("LensLoop backend started on %s:%s", config.HOST, config.PORT)
     yield
@@ -65,6 +72,7 @@ app.include_router(timelapse.router)
 app.include_router(preview.router)
 app.include_router(videos.router)
 app.include_router(schedule.router)
+app.include_router(settings.router)
 app.include_router(ws.router)
 
 _dist = Path(__file__).parent.parent / "frontend" / "dist"

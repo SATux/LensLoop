@@ -37,6 +37,10 @@ export const api = {
   videoFileUrl: (id) => `/api/videos/${id}/file`,
   thumbnailUrl: (id) => `/api/videos/${id}/thumbnail`,
 
+  getSettings: () => request('GET', '/api/settings'),
+  updateSettings: (body) => request('PATCH', '/api/settings', body),
+  deleteAllData: () => request('DELETE', '/api/settings/data'),
+
   listSchedules: () => request('GET', '/api/schedule'),
   createSchedule: (body) => request('POST', '/api/schedule', body),
   updateSchedule: (id, body) => request('PUT', `/api/schedule/${id}`, body),

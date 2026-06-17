@@ -52,6 +52,7 @@ export default function Capture() {
   const [duration, setDuration] = useState(10)
   const [fps, setFps] = useState(24)
   const [selectedMode, setSelectedMode] = useState(null)
+  const [defaultsLoaded, setDefaultsLoaded] = useState(false)
 
   const [status, setStatus] = useState({ status: 'idle', captured: 0, total: 0, started_at: null })
   const [error, setError] = useState('')
@@ -59,12 +60,28 @@ export default function Capture() {
   const [previewStatus, setPreviewStatus] = useState({ generating: false, ready: false, url: null })
   const elapsed = useElapsed(status.status === 'capturing' ? status.started_at : null)
 
-  // Pick default mode (highest-res full-FOV)
+  // Load saved defaults once
   useEffect(() => {
-    if (modes.length && !selectedMode) {
+    api.getSettings().then((s) => {
+      setIntervalSec(s.capture_interval ?? 5)
+      setDuration(s.capture_duration ?? 10)
+      setFps(s.capture_fps ?? 24)
+      setDefaultsLoaded(true)
+    }).catch(() => setDefaultsLoaded(true))
+  }, [])
+
+  // Pick default mode from settings (or highest-res full-FOV fallback)
+  useEffect(() => {
+    if (!modes.length || selectedMode) return
+    api.getSettings().then((s) => {
+      const saved = modes.find(m => m.width === s.capture_width && m.height === s.capture_height)
+      if (saved) { setSelectedMode(saved); return }
       const fullFov = [...modes].filter(m => m.full_fov).sort((a, b) => b.width * b.height - a.width * a.height)
       setSelectedMode(fullFov[0] || modes[modes.length - 1])
-    }
+    }).catch(() => {
+      const fullFov = [...modes].filter(m => m.full_fov).sort((a, b) => b.width * b.height - a.width * a.height)
+      setSelectedMode(fullFov[0] || modes[modes.length - 1])
+    })
   }, [modes])
 
   // Poll status

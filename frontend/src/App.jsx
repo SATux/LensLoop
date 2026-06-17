@@ -5,6 +5,7 @@ import LiveStream from './pages/LiveStream.jsx'
 import Capture from './pages/Capture.jsx'
 import Schedule from './pages/Schedule.jsx'
 import Library from './pages/Library.jsx'
+import Settings from './pages/Settings.jsx'
 
 export default function App() {
   return (
@@ -18,6 +19,7 @@ export default function App() {
             <Route path="/capture" element={<Capture />} />
             <Route path="/schedule" element={<Schedule />} />
             <Route path="/library" element={<Library />} />
+            <Route path="/settings" element={<Settings />} />
           </Routes>
         </div>
       </div>
