@@ -3,16 +3,34 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "picamera-suite"
-version = "0.1.0"
-description = "Raspberry Pi live MJPEG stream and timelapse server"
+name = "lensloop"
+version = "0.2.0"
+description = "LensLoop — Pi timelapse camera suite (FastAPI + React)"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.30",
+  "python-multipart>=0.0.9",
+  "websockets>=13",
+  "apscheduler>=3.10",
+  "croniter>=2.0",
+  "aiosqlite>=0.20",
+]
+
+[project.optional-dependencies]
+test = [
+  "pytest>=8",
+  "pytest-asyncio>=0.23",
+  "httpx>=0.27",
+  "pytest-mock>=3.14",
+  "freezegun>=1.5",
+]
 
 [project.scripts]
-serve    = "app.server:run"
-capture  = "app.capture:main"
-make-video = "app.video:main"
+serve = "backend.main:serve"
 
 [tool.hatch.build.targets.wheel]
-packages = ["app"]
+packages = ["backend"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"

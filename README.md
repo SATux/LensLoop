@@ -1,92 +1,115 @@
-# PiCamera Suite
+# LensLoop
 
-Lightweight web server for a Raspberry Pi camera. Streams live MJPEG video and captures timelapse sequences with automatic MP4 assembly.
+Pi camera suite built on FastAPI + React 18 + Vite. Streams live MJPEG video, captures timelapse sequences, and assembles them into MP4s — all from a dark-mode web UI.
+
+## Features
+
+- **Live stream** — real-time MJPEG preview via WebSocket-backed player
+- **Timelapse capture** — configurable interval, duration, resolution, and FPS; real-time progress via WebSocket
+- **Scheduler** — cron-based recurring captures stored in SQLite, displayed in SAST (UTC+2)
+- **Video library** — browse, stream (range requests), preview, and delete finished timelapses
+- **Camera capabilities** — auto-detected sensor modes with megapixels, max FPS, and field-of-view info
 
 ## Requirements
 
 ```bash
 sudo apt install python3-picamera2 ffmpeg
 curl -LsSf https://astral.sh/uv/install.sh | sh
+# node/npm — install via nvm or: sudo apt install nodejs npm
 ```
 
 ## Setup
 
 ```bash
-# Add uv to PATH (add to ~/.zshrc or ~/.bashrc to make permanent)
-export PATH="$HOME/.local/bin:$PATH"
-
-# Create venv using system Python (required — apt-installed picamera2 is not on PyPI)
+# picamera2 is a system package — share it into the venv
 uv venv --python /usr/bin/python3 --system-site-packages
 uv sync
 ```
 
-## Usage
+## Running
 
-### Web server
+```bash
+./start.sh
+```
+
+`start.sh` builds the React frontend if the dist is missing or stale, then starts uvicorn. Open `http://<pi-ip>:8000` in a browser.
+
+### Environment variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT` | `8000` | HTTP port |
+| `HOST` | `0.0.0.0` | Bind address |
+| `DATA_DIR` | `./data` | Root for frames, videos, DB |
+| `CAM_WIDTH` | `1280` | Stream preview width |
+| `CAM_HEIGHT` | `720` | Stream preview height |
+| `LOG_LEVEL` | `info` | uvicorn log level |
+
+### Entry point (without start.sh)
 
 ```bash
 uv run serve
-
-# Optional: debug logging or custom port/resolution
-DEBUG=1 uv run serve
-PORT=8080 CAM_WIDTH=1280 CAM_HEIGHT=720 uv run serve
-```
-
-Open `http://<pi-ip>:8000` in a browser.
-
-### Timelapse via web UI
-
-Navigate to **Setup Timelapse** from the landing page. Set the capture interval, total duration, and output framerate, then click **Start Capture**. The page polls for progress and shows a link to the finished video when done.
-
-> The live stream pauses while timelapse capture runs and resumes automatically when it finishes.
-
-### Timelapse via CLI
-
-```bash
-# Capture frames (Ctrl+C to stop early)
-uv run capture --output timelapse_frames --interval 10 --count 120
-
-# Assemble frames into video
-uv run make-video --frames timelapse_frames --output timelapse.mp4 --fps 10
+# or
+uv run uvicorn backend.main:app --host 0.0.0.0 --port 8000
 ```
 
 ## Project Structure
 
 ```
-pi-camera-suite/
-├── app/
-│   ├── __init__.py
-│   ├── camera.py      # Picamera2 MJPEG stream, FrameBuffer, start/stop
-│   ├── capture.py     # CLI timelapse frame capture (entry point: capture)
-│   ├── server.py      # HTTP handler, routing, ThreadingMixIn TCPServer
-│   ├── timelapse.py   # Web timelapse state machine (idle|capturing|building|done|error)
-│   └── video.py       # ffmpeg video assembly (entry point: make-video)
-├── static/
-│   ├── index.html            # Landing page
-│   ├── timelapse_page.html   # Timelapse setup and status UI
-│   ├── video_page.html       # Timelapse video player
-│   ├── livestream_page.html  # Live camera stream page
-│   └── placeholder.jpg       # Shown when camera is unavailable
-├── serve.py          # Direct-run fallback: /usr/bin/python3 serve.py
-└── pyproject.toml
+backend/
+  main.py               # FastAPI app, lifespan, static SPA mount
+  config.py             # Env-var config, derived paths
+  database.py           # aiosqlite schema init
+  models/schemas.py     # Pydantic schemas and dataclasses
+  services/
+    camera.py           # CameraService — MJPEG stream, still mode, capability discovery
+    capture.py          # CaptureService — blocking frame loop (asyncio.to_thread)
+    encoder.py          # EncoderService — ffmpeg/ffprobe wrapper
+    state.py            # StateManager — state machine, asyncio.Lock, WS pub/sub
+    scheduler.py        # SchedulerService — APScheduler + SQLite job store
+    video_library.py    # VideoLibrary — file management + DB
+  routers/              # FastAPI routers: stream, camera, timelapse, preview, videos, schedule, ws
+  tests/                # pytest-asyncio test suite (74 tests)
+frontend/
+  src/pages/            # Dashboard, LiveStream, Capture, Schedule, Library
+  src/components/       # Sidebar, TopBar, VideoPlayer, QualitySelector, etc.
+  src/hooks/            # useStatus (WS), useVideos, useCapabilities
+data/                   # Runtime data — gitignored
+  frames/<run_id>/      # Captured JPEGs (deleted after video assembly)
+  videos/               # Finished MP4s, named timelapse_YYYYMMDD_HHMMSS.mp4 (SAST)
+  previews/             # Short preview clips
+  thumbnails/           # Video poster frames
+  timelapse.db          # SQLite: runs, videos, scheduled_jobs
+LensLoop.png            # Wordmark logo (source)
+start.sh                # Build frontend + start server
+pyproject.toml
 ```
 
-## Routes
+## API Overview
 
 | Route | Method | Description |
 |-------|--------|-------------|
-| `/` | GET | Landing page |
-| `/livestream_page` | GET | Live camera stream page |
-| `/livestream` | GET | Raw MJPEG stream |
-| `/video_page` | GET | Timelapse video player page |
-| `/video` | GET | Most recently created `timelapse*.mp4` |
-| `/timelapse_page` | GET | Timelapse setup and status page |
-| `/timelapse/start` | POST | Start timelapse (`{interval, duration, fps}`) |
-| `/timelapse/stop` | POST | Abort running timelapse |
-| `/timelapse/status` | GET | Current state as JSON |
+| `/api/camera/info` | GET | Camera model and availability |
+| `/api/camera/capabilities` | GET | Sensor modes (resolution, FPS, FOV) |
+| `/api/stream` | GET | Raw MJPEG stream |
+| `/api/timelapse/status` | GET | Current capture state |
+| `/api/timelapse/start` | POST | Start capture |
+| `/api/timelapse/stop` | POST | Abort capture |
+| `/api/timelapse/build` | POST | Assemble frames → MP4 |
+| `/api/preview/{run_id}` | GET | Short preview clip (202 while generating) |
+| `/api/videos` | GET | List finished videos |
+| `/api/videos/{id}` | GET | Stream video (range requests supported) |
+| `/api/videos/{id}` | DELETE | Delete video + frames |
+| `/api/schedule` | GET / POST | List / create scheduled jobs |
+| `/api/schedule/{id}` | GET / PUT / DELETE | Get / update / delete job |
+| `/api/schedule/{id}/enable` | PATCH | Enable or disable job |
+| `/api/schedule/{id}/trigger` | POST | Run job immediately |
+| `/ws/status` | WS | Real-time capture progress |
 
 ## Notes
 
-- **Python**: must use `/usr/bin/python3` (system 3.11). Linuxbrew Python does not have picamera2.
-- **Video files**: `timelapse*.mp4` files are written to the project root and excluded from git. Frames in `timelapse_frames/` are deleted automatically after successful video assembly.
-- **Camera access**: only one process can hold the camera at a time. The web timelapse runner stops the MJPEG stream before capture and restarts it when done. Do not run `uv run capture` while the server is streaming.
+- **Python**: must use `/usr/bin/python3` (system 3.11 with picamera2). Linuxbrew Python does not have picamera2.
+- **Camera access**: only one process can hold the camera at a time. The server automatically stops the MJPEG stream before timelapse capture and restarts it when done.
+- **Timestamps**: all scheduler and video timestamps are displayed in SAST (UTC+2, no DST).
+- **Video filenames**: `timelapse_YYYYMMDD_HHMMSS.mp4` using SAST time; DB IDs remain UUIDs.
+- **Tests**: `uv run pytest backend/tests/ -v`

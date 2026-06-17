@@ -1,7 +1,8 @@
 # Generated data — not tracked
 timelapse_frames/
 test_frames/
-timelapse.mp4
+timelapse*.mp4
+data/
 
 # Python
 __pycache__/
@@ -10,6 +11,10 @@ __pycache__/
 .venv/
 venv/
 dist/
+
+# Frontend build output
+frontend/dist/
+frontend/node_modules/
 
 # OS
 .DS_Store
