@@ -2,11 +2,15 @@
 
 **GitHub:** https://github.com/SATux/LensLoop
 
-Pi camera suite built on FastAPI + React 18 + Vite. Streams live MJPEG video, captures timelapse sequences, and assembles them into MP4s — all from a dark-mode web UI.
+LensLoop is a self-hosted camera control and timelapse studio designed specifically for the **Raspberry Pi** with an official **Raspberry Pi Camera** (IMX219, IMX477, IMX708, and compatible modules). It runs entirely on the Pi — no cloud, no subscription — and is controlled from any browser on your local network.
+
+Point your browser at the Pi's IP, watch a live MJPEG stream straight from the sensor, kick off a timelapse with one click, and come back later to find a finished MP4 waiting in the library. The scheduler lets you automate recurring shoots (sunrise every morning, plant time-lapse over a week), and the camera capability browser surfaces every sensor mode the hardware supports — resolution, megapixels, max frame rate, and whether you're getting the full field of view or a center crop.
+
+Built on **FastAPI + React 18 + Vite**, backed by **picamera2** and **libcamera**.
 
 ## Features
 
-- **Live stream** — real-time MJPEG preview via WebSocket-backed player
+- **Live stream** — real-time MJPEG preview with in-browser quality controls; automatically selects the hardware VideoCore encoder for supported resolutions and falls back to software encoding (LibavMjpegEncoder) for full-sensor modes
 - **Timelapse capture** — configurable interval, duration, resolution, and FPS; real-time progress via WebSocket
 - **Scheduler** — cron-based recurring captures stored in SQLite, displayed in SAST (UTC+2)
 - **Video library** — browse, stream (range requests), preview, and delete finished timelapses
@@ -94,6 +98,8 @@ pyproject.toml
 | `/api/camera/info` | GET | Camera model and availability |
 | `/api/camera/capabilities` | GET | Sensor modes (resolution, FPS, FOV) |
 | `/api/stream` | GET | Raw MJPEG stream |
+| `/api/stream/quality` | GET / POST | Get or change the live stream resolution |
+| `/api/debug/level` | GET / POST | Get or set the server log level at runtime |
 | `/api/timelapse/status` | GET | Current capture state |
 | `/api/timelapse/start` | POST | Start capture |
 | `/api/timelapse/stop` | POST | Abort capture |
