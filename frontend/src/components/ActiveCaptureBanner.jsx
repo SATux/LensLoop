@@ -22,13 +22,24 @@ export function ActiveCaptureBanner({ status, onStop }) {
   }
 
   const isBuilding = status.status === 'building'
+  const hasFrames = status.status === 'capturing' && (status.captured ?? 0) > 0
 
   return (
-    <div className="border-l-2 border-cyan-400 pl-3 space-y-1.5">
+    <div className="border-l-2 border-cyan-400 pl-3 space-y-2">
       <div className="flex items-center gap-2 text-xs font-medium text-cyan-300">
         <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
         {isBuilding ? 'Building video…' : 'Capturing'}
       </div>
+
+      {hasFrames && (
+        <img
+          key={status.captured}
+          src={api.latestFrameUrl(status.captured)}
+          alt={`Frame ${status.captured}`}
+          className="w-full rounded-xl border border-zinc-700 object-cover"
+        />
+      )}
+
       {!isBuilding && (
         <div className="text-xs text-zinc-400">
           {status.captured} / {status.total} frames · {elapsed}

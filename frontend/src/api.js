@@ -26,6 +26,7 @@ export const api = {
   getTimelapsStatus: () => request('GET', '/api/timelapse/status'),
   startTimelapse: (body) => request('POST', '/api/timelapse/start', body),
   stopTimelapse: () => request('POST', '/api/timelapse/stop'),
+  latestFrameUrl: (n) => `/api/timelapse/latest-frame?n=${n}`,
 
   getPreviewStatus: () => request('GET', '/api/preview/status'),
   triggerPreview: () => request('GET', '/api/preview'),

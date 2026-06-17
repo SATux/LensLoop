@@ -242,6 +242,21 @@ export default function Capture() {
                   <div className="text-xs text-zinc-500 mt-1">Finishes in {estFinish}</div>
                 )}
               </div>
+
+              {status.status === 'capturing' && status.captured > 0 && (
+                <div className="w-full">
+                  <div className="text-xs text-zinc-500 mb-2 text-center">Latest frame</div>
+                  <img
+                    key={status.captured}
+                    src={api.latestFrameUrl(status.captured)}
+                    alt={`Frame ${status.captured}`}
+                    className="w-full rounded-2xl border border-zinc-700 object-cover"
+                  />
+                  <div className="text-xs text-zinc-600 text-right mt-1 font-mono">
+                    #{status.captured}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="bg-zinc-900 rounded-3xl p-6">
