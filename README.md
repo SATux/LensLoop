@@ -1,5 +1,7 @@
 # LensLoop
 
+**GitHub:** https://github.com/SATux/LensLoop
+
 Pi camera suite built on FastAPI + React 18 + Vite. Streams live MJPEG video, captures timelapse sequences, and assembles them into MP4s — all from a dark-mode web UI.
 
 ## Features
