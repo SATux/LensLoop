@@ -12,9 +12,15 @@ PUBLIC_DIR="$FRONTEND_DIR/public"
 # Copy logo and generate favicon if not already done
 mkdir -p "$PUBLIC_DIR"
 if [ -f "$REPO_DIR/LensLoop.png" ]; then
-  cp -f "$REPO_DIR/LensLoop.png" "$PUBLIC_DIR/LensLoop.png"
-  if [ ! -f "$PUBLIC_DIR/favicon.ico" ] && command -v convert &>/dev/null; then
-    convert "$REPO_DIR/LensLoop.png" -resize 32x32 "$PUBLIC_DIR/favicon.ico" 2>/dev/null || true
+  if command -v convert &>/dev/null; then
+    # Remove background colour and write with alpha channel
+    convert "$REPO_DIR/LensLoop.png" -fuzz 8% -transparent "srgb(55,56,58)" \
+      "$PUBLIC_DIR/LensLoop.png" 2>/dev/null \
+      || cp -f "$REPO_DIR/LensLoop.png" "$PUBLIC_DIR/LensLoop.png"
+    [ ! -f "$PUBLIC_DIR/favicon.ico" ] && \
+      convert "$REPO_DIR/LensLoop.png" -resize 32x32 "$PUBLIC_DIR/favicon.ico" 2>/dev/null || true
+  else
+    cp -f "$REPO_DIR/LensLoop.png" "$PUBLIC_DIR/LensLoop.png"
   fi
 fi
 
