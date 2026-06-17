@@ -9,25 +9,14 @@ FRONTEND_DIR="$REPO_DIR/frontend"
 DIST_DIR="$FRONTEND_DIR/dist"
 PUBLIC_DIR="$FRONTEND_DIR/public"
 
-# Copy logo and generate favicon if not already done
-mkdir -p "$PUBLIC_DIR"
-if [ -f "$REPO_DIR/LensLoop.png" ]; then
-  if command -v convert &>/dev/null; then
-    # Remove background colour and write with alpha channel
-    convert "$REPO_DIR/LensLoop.png" -fuzz 8% -transparent "srgb(55,56,58)" \
-      "$PUBLIC_DIR/LensLoop.png" 2>/dev/null \
-      || cp -f "$REPO_DIR/LensLoop.png" "$PUBLIC_DIR/LensLoop.png"
-    [ ! -f "$PUBLIC_DIR/favicon.ico" ] && \
-      convert "$REPO_DIR/LensLoop.png" -resize 32x32 "$PUBLIC_DIR/favicon.ico" 2>/dev/null || true
-  else
-    cp -f "$REPO_DIR/LensLoop.png" "$PUBLIC_DIR/LensLoop.png"
-  fi
+# Generate favicon from the committed logo if not already present
+if [ ! -f "$PUBLIC_DIR/favicon.ico" ] && [ -f "$PUBLIC_DIR/LensLoop.png" ] && command -v convert &>/dev/null; then
+  convert "$PUBLIC_DIR/LensLoop.png" -resize 32x32 "$PUBLIC_DIR/favicon.ico" 2>/dev/null || true
 fi
 
-# Build React if dist is missing, package.json is newer, or public assets changed
+# Build React if dist is missing or package.json is newer
 if [ ! -d "$DIST_DIR" ] \
-   || [ "$FRONTEND_DIR/package.json" -nt "$DIST_DIR" ] \
-   || [ "$PUBLIC_DIR/LensLoop.png" -nt "$DIST_DIR" ]; then
+   || [ "$FRONTEND_DIR/package.json" -nt "$DIST_DIR" ]; then
   echo "[start.sh] Building frontend…"
   cd "$FRONTEND_DIR"
   npm ci --silent
