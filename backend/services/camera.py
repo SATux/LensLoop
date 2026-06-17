@@ -3,6 +3,7 @@ import io
 import logging
 import threading
 import time
+import traceback
 from typing import Optional
 
 from ..models.schemas import CaptureMode
@@ -88,13 +89,39 @@ class CameraService:
         self.capture_modes: list[CaptureMode] = []
         self.frame_buffer = FrameBuffer()
         self._mode = "stopped"  # "stream" | "still" | "stopped"
+        self.stream_width: int = config.CAM_WIDTH
+        self.stream_height: int = config.CAM_HEIGHT
 
-    def start_stream(self) -> None:
+    def _start_mjpeg_recording(self, width: int, height: int) -> None:
+        """Start MJPEG recording, falling back to software encoder if hardware rejects the resolution."""
+        from picamera2.encoders import MJPEGEncoder
+        from picamera2.outputs import FileOutput
+
+        try:
+            self._cam.start_recording(MJPEGEncoder(), FileOutput(self.frame_buffer))
+            logger.debug("Hardware MJPEG encoder started at %dx%d", width, height)
+        except (OSError, ProcessLookupError) as hw_exc:
+            logger.warning(
+                "Hardware MJPEG encoder rejected %dx%d (VIDIOC_STREAMON: %s) — "
+                "falling back to LibavMjpegEncoder (software)",
+                width, height, hw_exc,
+            )
+            try:
+                from picamera2.encoders import LibavMjpegEncoder
+            except ImportError:
+                raise RuntimeError(
+                    f"Hardware encoder can't handle {width}×{height} and "
+                    "LibavMjpegEncoder (PyAV) is not installed"
+                ) from hw_exc
+            self._cam.start_recording(LibavMjpegEncoder(), FileOutput(self.frame_buffer))
+            logger.info("Software MJPEG encoder (LibavMjpegEncoder) started at %dx%d", width, height)
+
+    def start_stream(self, width: Optional[int] = None, height: Optional[int] = None) -> None:
+        w = width or config.CAM_WIDTH
+        h = height or config.CAM_HEIGHT
         with self._lock:
             try:
                 from picamera2 import Picamera2
-                from picamera2.encoders import MJPEGEncoder
-                from picamera2.outputs import FileOutput
 
                 self._cam = Picamera2()
 
@@ -103,17 +130,52 @@ class CameraService:
                 # on the active camera, which raises in some libcamera versions.
                 self._populate_capabilities()
 
-                cfg = self._cam.create_video_configuration(
-                    main={"size": (config.CAM_WIDTH, config.CAM_HEIGHT)}
-                )
+                cfg = self._cam.create_video_configuration(main={"size": (w, h)})
                 self._cam.configure(cfg)
-                self._cam.start_recording(MJPEGEncoder(), FileOutput(self.frame_buffer))
+                self._start_mjpeg_recording(w, h)
                 self.available = True
                 self._mode = "stream"
-                logger.info("Camera streaming at %dx%d", config.CAM_WIDTH, config.CAM_HEIGHT)
+                self.stream_width = w
+                self.stream_height = h
+                logger.info("Camera streaming at %dx%d", w, h)
             except Exception as exc:
                 logger.warning("Camera unavailable: %s", exc)
                 self.available = False
+
+    def set_stream_quality(self, width: int, height: int) -> None:
+        with self._lock:
+            logger.debug(
+                "set_stream_quality: requested %dx%d | current mode=%s",
+                width, height, self._mode,
+            )
+
+            if self._mode != "stream" or self._cam is None:
+                logger.error("set_stream_quality called but camera not streaming (mode=%s)", self._mode)
+                raise RuntimeError("Camera is not currently streaming")
+
+            logger.debug("Calling stop_recording()...")
+            try:
+                self._cam.stop_recording()
+                logger.debug("stop_recording() OK")
+            except Exception as exc:
+                logger.warning("stop_recording() raised (continuing): %s\n%s", exc, traceback.format_exc())
+
+            logger.debug("Configuring at %dx%d...", width, height)
+            try:
+                cfg = self._cam.create_video_configuration(main={"size": (width, height)})
+                self._cam.configure(cfg)
+                logger.debug("configure() OK")
+                self._start_mjpeg_recording(width, height)
+                self.stream_width = width
+                self.stream_height = height
+                logger.info("Stream quality changed to %dx%d", width, height)
+            except Exception as exc:
+                logger.error(
+                    "Failed to set stream quality: %s\n%s", exc, traceback.format_exc()
+                )
+                self.available = False
+                self._mode = "stopped"
+                raise
 
     def _populate_capabilities(self) -> None:
         if self._cam is None:
@@ -146,6 +208,9 @@ class CameraService:
             if self._cam is not None and self._mode == "stream":
                 try:
                     self._cam.stop_recording()
+                except Exception:
+                    pass
+                try:
                     self._cam.close()
                 except Exception:
                     pass

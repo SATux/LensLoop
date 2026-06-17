@@ -18,6 +18,10 @@ async function request(method, path, body) {
 export const api = {
   getCameraInfo: () => request('GET', '/api/camera/info'),
   getCameraCapabilities: () => request('GET', '/api/camera/capabilities'),
+  getStreamQuality: () => request('GET', '/api/stream/quality'),
+  setStreamQuality: (width, height) => request('POST', '/api/stream/quality', { width, height }),
+  getLogLevel: () => request('GET', '/api/debug/level'),
+  setLogLevel: (level) => request('POST', '/api/debug/level', { level }),
 
   getTimelapsStatus: () => request('GET', '/api/timelapse/status'),
   startTimelapse: (body) => request('POST', '/api/timelapse/start', body),

@@ -139,6 +139,11 @@ class ScheduleResponse(BaseModel):
     last_run_at: Optional[str]
 
 
+class StreamQualityRequest(BaseModel):
+    width: int
+    height: int
+
+
 class WsStatusMessage(BaseModel):
     event: str
     data: dict
